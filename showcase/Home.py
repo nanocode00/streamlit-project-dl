@@ -16,9 +16,8 @@ def apply_page_style() -> None:
     """
     Streamlit이 관리하는 Light/Dark/System 색상은 덮어쓰지 않습니다.
 
-    이 CSS는 레이아웃, 간격, 둥근 모서리, 그림자, 투명 장식과
-    제한적인 브랜드 강조색만 담당합니다. 커스텀 영역의 표면색과
-    테두리는 현재 테마의 글자색(currentColor)을 기준으로 계산됩니다.
+    모든 페이지가 같은 브랜드색, 배경 장식, 카드 표면, 테두리,
+    그림자, 둥근 모서리와 보조 문구 투명도를 사용합니다.
     """
     st.markdown(
         """
@@ -26,12 +25,11 @@ def apply_page_style() -> None:
         :root {
           --sc-coral: #e76f51;
           --sc-mint: #2a9d8f;
+          --sc-hero-radius: 18px;
+          --sc-surface-radius: 16px;
+          --sc-control-radius: 12px;
         }
 
-        /*
-         * Streamlit의 기본 배경색은 그대로 유지합니다.
-         * 투명한 background-image만 추가하므로 테마 전환을 방해하지 않습니다.
-         */
         .stApp {
           background-image:
             radial-gradient(
@@ -46,13 +44,16 @@ def apply_page_style() -> None:
             );
         }
 
-        /* 커스텀 히어로 카드: color-mix 미지원 브라우저용 기본값 */
+        [data-testid="stSidebar"] {
+          border-right: 1px solid rgba(127, 127, 127, .20);
+        }
+
         .sc-hero {
           color: inherit;
           padding: 1.6rem 1.8rem;
           margin-bottom: 1.2rem;
           border: 1px solid rgba(127, 127, 127, .20);
-          border-radius: 18px;
+          border-radius: var(--sc-hero-radius);
           background: rgba(127, 127, 127, .04);
           box-shadow: 0 12px 30px rgba(0, 0, 0, .10);
         }
@@ -85,7 +86,6 @@ def apply_page_style() -> None:
           opacity: .64;
         }
 
-        /* 커스텀 안내문: 브랜드색은 왼쪽 강조선에만 사용합니다. */
         .sc-note {
           color: inherit;
           padding: .7rem .9rem;
@@ -95,18 +95,21 @@ def apply_page_style() -> None:
           opacity: .86;
         }
 
-        /* Streamlit 기본 컴포넌트의 색은 건드리지 않고 모양만 유지합니다. */
         [data-testid="stVerticalBlockBorderWrapper"],
         [data-testid="stExpander"] {
-          border-radius: 16px;
+          border-radius: var(--sc-surface-radius);
         }
 
         .stButton > button,
         [data-testid="stPageLink"] a {
-          border-radius: 12px;
+          border-radius: var(--sc-control-radius);
         }
 
         @supports (background: color-mix(in srgb, currentColor 4%, transparent)) {
+          [data-testid="stSidebar"] {
+            border-right-color: color-mix(in srgb, currentColor 20%, transparent);
+          }
+
           .sc-hero {
             background: color-mix(in srgb, currentColor 4%, transparent);
             border-color: color-mix(in srgb, currentColor 20%, transparent);

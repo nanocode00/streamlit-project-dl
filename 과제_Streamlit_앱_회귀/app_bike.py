@@ -144,65 +144,54 @@ def format_sweep_value(feature_name: str, value: float) -> str:
 
 
 def apply_page_style() -> None:
-    """
-    Streamlit이 관리하는 배경색·본문색·사이드바색은 덮어쓰지 않습니다.
-    사용자 스타일은 currentColor를 기준으로 만들어 테마 변경 즉시 함께 전환됩니다.
-    """
+    """Streamlit 테마는 유지하고 showcase 전체와 같은 디자인 값을 적용합니다."""
     st.markdown(
         """
         <style>
-        /*
-         * 핵심 원칙
-         * 1. .stApp의 background-color와 color를 강제로 지정하지 않음
-         * 2. sidebar의 배경색도 강제로 지정하지 않음
-         * 3. 카드·테두리는 currentColor를 낮은 투명도로 섞어 생성
-         *
-         * 따라서 Light/Dark/System 전환을 Python에서 감지할 필요가 없습니다.
-         */
+        :root {
+          --sc-coral: #e76f51;
+          --sc-mint: #2a9d8f;
+          --sc-hero-radius: 18px;
+          --sc-surface-radius: 16px;
+          --sc-control-radius: 12px;
+        }
 
         .stApp {
-          /* Streamlit의 원래 배경색은 유지하고 아주 옅은 장식만 추가합니다. */
           background-image:
-            linear-gradient(
-              135deg,
-              rgba(42, 157, 143, .025) 0%,
-              rgba(231, 111, 81, .018) 100%
+            radial-gradient(
+              circle at 8% 0%,
+              rgba(231, 111, 81, .075) 0,
+              transparent 30rem
+            ),
+            radial-gradient(
+              circle at 92% 12%,
+              rgba(42, 157, 143, .065) 0,
+              transparent 32rem
             );
         }
 
-        [data-testid="stHeader"] {
-          background: transparent;
+        [data-testid="stSidebar"] {
+          border-right: 1px solid rgba(127, 127, 127, .20);
         }
 
         .mp-hero {
+          color: inherit;
           padding: 1.6rem 1.8rem;
           margin-bottom: 1.2rem;
-          border-radius: 18px;
-
-          /* color-mix 미지원 브라우저용 기본값 */
-          border: 1px solid rgba(127, 127, 127, .28);
-          background: rgba(127, 127, 127, .045);
-          box-shadow: 0 12px 30px rgba(0, 0, 0, .08);
-
-          /* 현재 테마의 상속된 글자색을 기준으로 즉시 계산됩니다. */
-          border-color:
-            color-mix(in srgb, currentColor 20%, transparent);
-          background:
-            color-mix(in srgb, currentColor 4%, transparent);
-          box-shadow:
-            0 12px 30px
-            color-mix(in srgb, currentColor 10%, transparent);
+          border: 1px solid rgba(127, 127, 127, .20);
+          border-radius: var(--sc-hero-radius);
+          background: rgba(127, 127, 127, .04);
+          box-shadow: 0 12px 30px rgba(0, 0, 0, .10);
         }
 
         .mp-kicker {
-          color: #2a9d8f;
+          color: var(--sc-coral);
           font-weight: 800;
           letter-spacing: .08em;
           font-size: .78rem;
         }
 
         .mp-title {
-          /* 고정 색이나 별도 테마 변수를 사용하지 않고 부모 색을 상속합니다. */
           color: inherit;
           font-size: clamp(1.8rem, 4vw, 3rem);
           line-height: 1.08;
@@ -211,25 +200,21 @@ def apply_page_style() -> None:
 
         .mp-sub {
           color: inherit;
-          opacity: .72;
+          opacity: .74;
           margin: 0;
           max-width: 780px;
         }
 
         .mp-step {
-          border-left: 4px solid #e76f51;
-          padding: .35rem .8rem;
           color: inherit;
-          opacity: .88;
+          opacity: .86;
+          border-left: 4px solid var(--sc-mint);
+          padding: .35rem .8rem;
         }
 
-        /*
-         * Streamlit이 expander와 border container의 실제 배경·글자색을
-         * 관리하게 두고 모양만 조정합니다.
-         */
         [data-testid="stVerticalBlockBorderWrapper"],
         [data-testid="stExpander"] {
-          border-radius: 16px;
+          border-radius: var(--sc-surface-radius);
         }
 
         [data-testid="stExpander"] summary,
@@ -238,7 +223,21 @@ def apply_page_style() -> None:
         }
 
         .stButton > button {
-          border-radius: 12px;
+          border-radius: var(--sc-control-radius);
+        }
+
+        @supports (background: color-mix(in srgb, currentColor 4%, transparent)) {
+          [data-testid="stSidebar"] {
+            border-right-color: color-mix(in srgb, currentColor 20%, transparent);
+          }
+
+          .mp-hero {
+            background: color-mix(in srgb, currentColor 4%, transparent);
+            border-color: color-mix(in srgb, currentColor 20%, transparent);
+            box-shadow:
+              0 12px 30px
+              color-mix(in srgb, currentColor 10%, transparent);
+          }
         }
         </style>
         """,

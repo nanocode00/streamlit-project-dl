@@ -247,19 +247,30 @@ def predict_probabilities(model: nn.Module, x: torch.Tensor) -> np.ndarray:
 
 
 def apply_page_style() -> None:
-    """Streamlit 테마의 색상은 유지하고 레이아웃과 투명 장식만 추가합니다."""
+    """Streamlit 테마는 유지하고 showcase 전체와 같은 디자인 값을 적용합니다."""
     st.markdown(
         """
         <style>
         :root {
-          --mp-coral: #e76f51;
-          --mp-mint: #2a9d8f;
+          --sc-coral: #e76f51;
+          --sc-mint: #2a9d8f;
+          --sc-hero-radius: 18px;
+          --sc-surface-radius: 16px;
+          --sc-control-radius: 12px;
         }
 
         .stApp {
           background-image:
-            radial-gradient(circle at 8% 0%, rgba(231, 111, 81, .08), transparent 30%),
-            radial-gradient(circle at 92% 12%, rgba(42, 157, 143, .07), transparent 28%);
+            radial-gradient(
+              circle at 8% 0%,
+              rgba(231, 111, 81, .075) 0,
+              transparent 30rem
+            ),
+            radial-gradient(
+              circle at 92% 12%,
+              rgba(42, 157, 143, .065) 0,
+              transparent 32rem
+            );
         }
 
         [data-testid="stSidebar"] {
@@ -271,13 +282,13 @@ def apply_page_style() -> None:
           padding: 1.6rem 1.8rem;
           margin-bottom: 1.2rem;
           border: 1px solid rgba(127, 127, 127, .20);
-          border-radius: 18px;
-          background-color: rgba(127, 127, 127, .04);
+          border-radius: var(--sc-hero-radius);
+          background: rgba(127, 127, 127, .04);
           box-shadow: 0 12px 30px rgba(0, 0, 0, .10);
         }
 
         .mp-kicker {
-          color: var(--mp-coral);
+          color: var(--sc-coral);
           font-weight: 800;
           letter-spacing: .08em;
           font-size: .78rem;
@@ -292,29 +303,29 @@ def apply_page_style() -> None:
 
         .mp-sub {
           color: inherit;
-          opacity: .72;
+          opacity: .74;
           margin: 0;
-          max-width: 760px;
+          max-width: 780px;
         }
 
         .mp-step {
           color: inherit;
-          opacity: .78;
-          border-left: 4px solid var(--mp-mint);
+          opacity: .86;
+          border-left: 4px solid var(--sc-mint);
           padding: .35rem .8rem;
         }
 
-        [data-testid="stVerticalBlockBorderWrapper"] {
-          border-radius: 16px;
+        [data-testid="stVerticalBlockBorderWrapper"],
+        [data-testid="stExpander"] {
+          border-radius: var(--sc-surface-radius);
         }
 
         .stButton > button {
-          border-radius: 12px;
+          border-radius: var(--sc-control-radius);
         }
 
         /*
-         * 캔버스는 고정 너비 shell 안에서 렌더링합니다.
-         * custom component가 stretch 요소여도 shell 자체가 가운데에 오도록 보정합니다.
+         * 캔버스 관련 규칙은 기능적 레이아웃이므로 그대로 유지합니다.
          */
         .st-key-mnist_canvas_shell {
           margin-inline: auto;
@@ -326,15 +337,17 @@ def apply_page_style() -> None:
           max-width: 100% !important;
         }
 
-        @supports (background-color: color-mix(in srgb, currentColor 4%, transparent)) {
+        @supports (background: color-mix(in srgb, currentColor 4%, transparent)) {
           [data-testid="stSidebar"] {
             border-right-color: color-mix(in srgb, currentColor 20%, transparent);
           }
 
           .mp-hero {
-            background-color: color-mix(in srgb, currentColor 4%, transparent);
+            background: color-mix(in srgb, currentColor 4%, transparent);
             border-color: color-mix(in srgb, currentColor 20%, transparent);
-            box-shadow: 0 12px 30px color-mix(in srgb, currentColor 10%, transparent);
+            box-shadow:
+              0 12px 30px
+              color-mix(in srgb, currentColor 10%, transparent);
           }
         }
         </style>
