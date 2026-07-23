@@ -1,4 +1,4 @@
-# THEME FIX V2 + TRUE CENTERED CANVAS + STABLE DRAWING V4 + PNG DOWNLOAD V5 + MOBILE CAMERA V2
+# THEME LATEST + CENTERED CANVAS + FIXED-KEY CONTROLS + FIRST-UNDO FIX V8 + PNG DOWNLOAD LEFT V9 + MOBILE CAMERA
 # MNIST 손글씨 분류기
 # 실행: python3.11 -m streamlit run app.py
 from copy import deepcopy
@@ -42,21 +42,30 @@ def is_mobile_device() -> bool:
 
 
 CANVAS_DRAWING_KEY = "mnist_canvas_drawing"
+CANVAS_INITIAL_DRAWING_KEY = "mnist_canvas_initial_drawing"
 CANVAS_REDO_KEY = "mnist_canvas_redo"
-CANVAS_REVISION_KEY = "mnist_canvas_revision"
-CANVAS_PENDING_DRAWING_KEY = "mnist_canvas_pending_drawing"
+CANVAS_SKIP_SYNC_KEY = "mnist_canvas_skip_sync_once"
+CANVAS_CONTROL_REVISION_KEY = "mnist_canvas_control_revision"
+CANVAS_COMPONENT_KEY = "mnist_digit_canvas"
+
+
+def empty_canvas_drawing() -> dict:
+    """빈 Fabric.js drawing을 새 객체로 반환합니다."""
+    return {"version": "4.4.0", "objects": []}
 
 
 def ensure_canvas_state() -> None:
     """외부 캔버스 제어 버튼에서 사용할 그리기 상태를 초기화합니다."""
     if CANVAS_DRAWING_KEY not in st.session_state:
-        st.session_state[CANVAS_DRAWING_KEY] = None
+        st.session_state[CANVAS_DRAWING_KEY] = empty_canvas_drawing()
+    if CANVAS_INITIAL_DRAWING_KEY not in st.session_state:
+        st.session_state[CANVAS_INITIAL_DRAWING_KEY] = empty_canvas_drawing()
     if CANVAS_REDO_KEY not in st.session_state:
         st.session_state[CANVAS_REDO_KEY] = []
-    if CANVAS_REVISION_KEY not in st.session_state:
-        st.session_state[CANVAS_REVISION_KEY] = 0
-    if CANVAS_PENDING_DRAWING_KEY not in st.session_state:
-        st.session_state[CANVAS_PENDING_DRAWING_KEY] = None
+    if CANVAS_SKIP_SYNC_KEY not in st.session_state:
+        st.session_state[CANVAS_SKIP_SYNC_KEY] = False
+    if CANVAS_CONTROL_REVISION_KEY not in st.session_state:
+        st.session_state[CANVAS_CONTROL_REVISION_KEY] = 0
 
 
 def canvas_objects(drawing: dict | None = None) -> list[dict]:
@@ -76,6 +85,12 @@ def canvas_signature(drawing: dict | None) -> str:
 
 def sync_canvas_drawing(drawing: dict | None) -> None:
     """사용자가 새로 그린 결과를 세션 상태에 저장하고 redo 기록을 비웁니다."""
+    # 외부 버튼을 누른 직후의 첫 rerun에서는 컴포넌트가 아직 이전 값을
+    # 반환할 수 있으므로 그 값을 세션 상태에 덮어쓰지 않습니다.
+    if st.session_state.get(CANVAS_SKIP_SYNC_KEY, False):
+        st.session_state[CANVAS_SKIP_SYNC_KEY] = False
+        return
+
     if not isinstance(drawing, dict):
         return
 
@@ -85,10 +100,22 @@ def sync_canvas_drawing(drawing: dict | None) -> None:
         st.session_state[CANVAS_REDO_KEY] = []
 
 
-def remount_canvas(drawing: dict | None) -> None:
-    """외부 제어 결과를 다음 캔버스 마운트에 한 번만 주입합니다."""
-    st.session_state[CANVAS_PENDING_DRAWING_KEY] = deepcopy(drawing)
-    st.session_state[CANVAS_REVISION_KEY] += 1
+def apply_canvas_drawing(drawing: dict) -> None:
+    """고정 key 캔버스에 외부 제어 결과를 확실히 다시 적용합니다.
+
+    첫 획을 취소하면 목표 drawing이 앱 시작 시의 빈 drawing과 동일합니다.
+    이때 initial_drawing 값이 같으면 프런트엔드가 변경을 감지하지 못할 수 있으므로,
+    Fabric.js가 그리지 않는 최상위 메타데이터 토큰을 매번 변경해 갱신을 강제합니다.
+    """
+    clean_drawing = deepcopy(drawing)
+    st.session_state[CANVAS_DRAWING_KEY] = clean_drawing
+
+    st.session_state[CANVAS_CONTROL_REVISION_KEY] += 1
+    injected_drawing = deepcopy(clean_drawing)
+    injected_drawing["_streamlit_control_revision"] = st.session_state[CANVAS_CONTROL_REVISION_KEY]
+
+    st.session_state[CANVAS_INITIAL_DRAWING_KEY] = injected_drawing
+    st.session_state[CANVAS_SKIP_SYNC_KEY] = True
 
 
 def undo_canvas() -> None:
@@ -101,9 +128,8 @@ def undo_canvas() -> None:
 
     removed_object = objects.pop()
     drawing["objects"] = objects
-    st.session_state[CANVAS_DRAWING_KEY] = drawing
     st.session_state[CANVAS_REDO_KEY].append(removed_object)
-    remount_canvas(drawing)
+    apply_canvas_drawing(drawing)
 
 
 def redo_canvas() -> None:
@@ -115,22 +141,19 @@ def redo_canvas() -> None:
 
     drawing = deepcopy(st.session_state[CANVAS_DRAWING_KEY])
     if not isinstance(drawing, dict):
-        drawing = {"version": "4.4.0", "objects": []}
+        drawing = empty_canvas_drawing()
 
     objects = canvas_objects(drawing)
     objects.append(redo_stack.pop())
     drawing["objects"] = objects
-    st.session_state[CANVAS_DRAWING_KEY] = drawing
-    remount_canvas(drawing)
+    apply_canvas_drawing(drawing)
 
 
 def reset_canvas() -> None:
     """캔버스의 모든 획과 실행 취소 기록을 제거합니다."""
     ensure_canvas_state()
-    empty_drawing = {"version": "4.4.0", "objects": []}
-    st.session_state[CANVAS_DRAWING_KEY] = empty_drawing
     st.session_state[CANVAS_REDO_KEY] = []
-    remount_canvas(empty_drawing)
+    apply_canvas_drawing(empty_canvas_drawing())
 
 
 class ScaffoldIncomplete(RuntimeError):
@@ -380,12 +403,11 @@ def render_canvas_input() -> tuple[Image.Image | None, torch.Tensor | None, np.n
     stroke_width = st.slider("펜 굵기", min_value=12, max_value=36, value=22, step=2)
     st.caption("검은 영역에 흰색으로 숫자 하나를 크게 그리세요. 아래 버튼으로 실행 취소·다시 실행·초기화할 수 있습니다.")
 
-    # 일반적인 획 추가 rerun에서는 initial_drawing을 다시 전달하지 않습니다.
-    # 같은 key의 프런트엔드 상태를 유지해 캔버스 재초기화와 깜빡임을 막습니다.
-    # 실행 취소·다시 실행·초기화 직후에만 수정된 drawing을 한 번 주입합니다.
-    canvas_key = f"mnist_digit_canvas_{st.session_state[CANVAS_REVISION_KEY]}"
-    initial_drawing = deepcopy(st.session_state[CANVAS_PENDING_DRAWING_KEY])
-    st.session_state[CANVAS_PENDING_DRAWING_KEY] = None
+    # 캔버스 key는 항상 고정합니다. 외부 버튼을 눌러도 iframe을 제거하고
+    # 새로 만들지 않고, 같은 컴포넌트에 변경된 drawing만 전달합니다.
+    # initial_drawing에는 외부 제어 때마다 달라지는 비표시 토큰이 포함되어,
+    # 첫 획을 지워 다시 빈 상태가 되어도 변경이 확실히 전달됩니다.
+    initial_drawing = deepcopy(st.session_state[CANVAS_INITIAL_DRAWING_KEY])
 
     # custom component는 부모에서 stretch 요소로 취급되므로,
     # 먼저 280px 고정 너비 shell을 만든 뒤 그 shell 자체를 가운데에 배치합니다.
@@ -402,7 +424,7 @@ def render_canvas_input() -> tuple[Image.Image | None, torch.Tensor | None, np.n
                 drawing_mode="freedraw",
                 initial_drawing=initial_drawing,
                 display_toolbar=False,
-                key=canvas_key,
+                key=CANVAS_COMPONENT_KEY,
             )
 
     sync_canvas_drawing(canvas_result.json_data)
@@ -418,6 +440,16 @@ def render_canvas_input() -> tuple[Image.Image | None, torch.Tensor | None, np.n
     download_disabled = image is None
 
     with st.container(horizontal=True, horizontal_alignment="center", gap="small"):
+        st.download_button(
+            "PNG 저장",
+            data=png_data,
+            file_name="mnist_canvas.png",
+            mime="image/png",
+            icon=":material/download:",
+            disabled=download_disabled,
+            on_click="ignore",
+            width="content",
+        )
         st.button(
             "실행 취소",
             icon=":material/undo:",
@@ -437,16 +469,6 @@ def render_canvas_input() -> tuple[Image.Image | None, torch.Tensor | None, np.n
             icon=":material/delete:",
             disabled=reset_disabled,
             on_click=reset_canvas,
-            width="content",
-        )
-        st.download_button(
-            "PNG 저장",
-            data=png_data,
-            file_name="mnist_canvas.png",
-            mime="image/png",
-            icon=":material/download:",
-            disabled=download_disabled,
-            on_click="ignore",
             width="content",
         )
 
